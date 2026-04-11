@@ -1,128 +1,254 @@
 # JumpSafe Continuation: Pose-Based Jump-Landing Quality Classification
 
 ## Project Overview
-This project is a continuation of JumpSafe, an embedded AI system for jump classification using consumer video. This continuation shifts from raw frame image classification to a pose-based machine learning pipeline for assessing jump landing quality using interpretable biomechanical features. The goal is to build a proof-of-concept system that can accept a short jump video, extracts thepose landmarks, engineers landing related features, and predicts a simple landing quality label.
+JumpSafe Continuation is a pose-based machine learning project for assessing jump-landing quality from consumer video. This project extends earlier JumpSafe work by shifting from raw frame image classification to a more interpretable pipeline based on human pose landmarks and clip-level sequence modeling.
 
+The current prototype takes short labeled jump videos, samples frames, extracts pose landmarks with MediaPipe Pose, cleans and normalizes landmark sequences, and trains clip-level classifiers to predict a landing-quality label (`good_jump` or `bad_jump`). The project includes both a primary temporal model (GRU) and a simpler static baseline (logistic regression on mean-pooled pose features).
 
-## Project Goals
-The goals of this project are to:
-- organize and validate the JumpSafe continuation dataset and environment
-- extract pose landmarks and temporal landmark sequences from jump videos
-- engineer interpretable biomechanical features related to landing quality
-- train a primary temporal deep learning model, such as an LSTM or GRU, for clip-level landing-quality classification
-- compare the temporal model against simpler static baselines
-- develop a simple interactive interface for demonstrating inference results
+## Current Project Purpose
+The goal of the current stage is to build and verify an end-to-end prototype that can:
+
+- process raw jump videos into standardized pose-based representations
+- train and evaluate a temporal sequence model for landing-quality classification
+- compare the temporal model against a simpler static baseline
+- generate landing-quality predictions from raw video input
+- support a future lightweight interface layer for user-facing inference
+
+This project is a proof of concept and should not be interpreted as a clinical or diagnostic injury-risk system.
+
+## Current Pipeline
+
+Raw Jump Video
+→ Frame Sampling
+→ MediaPipe Pose Extraction
+→ Landmark Cleaning + Normalization
+→ Fixed-Length Sequence Construction (30, 132)
+→ Model Inference
+   ├── GRU temporal classifier
+   └── Logistic regression baseline on mean-pooled features
+→ Landing-Quality Prediction
+
+Each processed clip is represented as a fixed-length pose sequence of shape `(30, 132)`:
+- `30` uniformly sampled frames per clip
+- `33` pose landmarks per frame
+- `4` values per landmark: `(x, y, z, visibility)`
+- `33 × 4 = 132` features per frame
 
 ## Repository Structure
 
-```text
 JumpSafe_Continuation/
 ├── data/
 │   ├── raw/
 │   ├── interim/
 │   ├── processed/
 │   └── sample_videos/
+│
 ├── notebooks/
-│   └── setup.ipynb
+│   ├── 01_environment_and_video_check.ipynb
+│   ├── 02_pose_pipeline_debug.ipynb
+│   ├── 03_build_landmark_sequences.ipynb
+│   ├── 04_gru_model_evaluation.ipynb
+│   ├── 05_static_baselines.ipynb
+│   └── 06_model_comparison.ipynb
+│
 ├── src/
 │   ├── __init__.py
-│   ├── data_loader.py
+│   ├── config.py
+│   ├── video_utils.py
 │   ├── pose_extraction.py
+│   ├── preprocessing.py
 │   ├── sequence_builder.py
-│   ├── feature_engineering.py
-│   ├── train_lstm.py
+│   ├── dataset.py
+│   ├── temporal_model.py
+│   ├── train_temporal.py
 │   ├── train_baselines.py
-│   ├── evaluate.py
-│   └── utils.py
+│   └── inference.py
+│
 ├── ui/
 │   └── app.py
+│
 ├── results/
-│   ├── figures/
-│   └── outputs/
+│   └── figures/
+│
 ├── docs/
 ├── README.md
 ├── requirements.txt
 └── .gitignore
 
-```
+Note: Some legacy scaffold files may still remain in the repository for the timebeing, but the active workflow for the current prototype is based on the notebooks and source files listed above.
 
 ## Installation and Setup
 
 ### 1. Clone the repository
-```bash
 git clone https://github.com/armd08-cyber/jumpsafe-continuation.git
 cd jumpsafe-continuation
-```
 
-### 2. Create and activate a virtual environment
+### 2. Create and activate an environment
 
 On macOS/Linux:
-```bash
 python3 -m venv venv
 source venv/bin/activate
-```
+
+Or use your preferred Conda environment.
 
 ### 3. Install dependencies
-
-```bash
 pip install -r requirements.txt
-```
 
-## Running the Notebook
-
-From the project root, launch Jupyter Notebook:
-
-```bash
+### 4. Launch Jupyter
 jupyter notebook
-```
 
-Then open:
-`notebooks/setup.ipynb`
+### 5. Important compatibility note
+This project currently uses `mediapipe==0.10.21` for compatibility with the implemented `mp.solutions.pose` pipeline.
 
-The setup notebook is intended to:
-- verify that the environment is functioning as intended
-- confirm dataset loading/access
-- perform early data exploration
-- generate visible output like summary tables, plots, and a sample video frame
+## Recommended Notebook Order
+
+Run the notebooks in this order after a fresh kernel restart.
+
+### 1. 01_environment_and_video_check.ipynb
+Verifies:
+- imports and environment setup
+- metadata loading
+- raw video path validation
+- frame sampling from a sample clip
+
+### 2. 02_pose_pipeline_debug.ipynb
+Verifies:
+- MediaPipe Pose extraction
+- landmark sequence generation
+- preprocessing into fixed-length `(30, 132)` clip representations
+
+### 3. 03_build_landmark_sequences.ipynb
+Builds:
+- processed `.npy` landmark sequences for all clips
+- processed sequence metadata
+
+### 4. 04_gru_model_evaluation.ipynb
+Runs:
+- GRU dataset loading
+- GRU forward-pass sanity checks
+- single-split sanity training
+- stratified 5-fold cross-validation for the GRU model
+
+### 5. 05_static_baselines.ipynb
+Runs:
+- logistic regression baseline on mean-pooled clip-level pose features
+- stratified 5-fold cross-validation
+- final logistic regression model saving
+
+### 6. 06_model_comparison.ipynb
+Builds:
+- side-by-side comparison table between GRU and logistic regression
 
 ## Dataset Information
 
-This project uses the existing JumpSafe dataset collected in a controlled indoor setting. The dataset currently includes 30 raw jump videos stored locally in `data/raw/` and 2 labeled sample videos stored in `data/sample_videos/` for setup and testing purposes. The project uses short jump video clips as the primary data source and will later derive pose landmarks and engineered biomechanical features from those videos.
+The current dataset consists of:
+- `30` labeled raw jump clips
+- balanced binary labels:
+  - `15` `good_jump`
+  - `15` `bad_jump`
 
-Because the raw dataset consists of video files, the repository structure separates data into:
+The raw videos are stored locally under `data/raw/`, and processed clip representations are saved under `data/processed/`.
 
-- `data/raw/` for original source videos
-- `data/interim/` for intermediate outputs such as extracted landmarks
-- `data/processed/` for model-ready feature tables
-- `data/sample_videos/` for small demo clips used in setup and interface testing
+Due to the dataset's small size, evaluation is performed at the clip level using stratified 5-fold cross-validation rather than a single random holdout split.
 
-Large raw video files may be kept locally rather than fully tracked in GitHub, depending on repository size constraints. 
+## How to Reproduce the Current Results
 
-Because the dataset contains only 30 labeled clips, model evaluation is planned at the clip level using leave-one-out cross-validation (LOOCV) or stratified k-fold cross-validation rather than a single holdout split. A subset of clips will also be independently reviewed by a second rater so that inter-rater agreement can be estimated using Cohen’s kappa.
+### A. Build processed pose sequences
+Run:
+- `03_build_landmark_sequences.ipynb`
 
+This generates:
+- processed landmark sequences in `data/processed/landmark_sequences/`
+- processed metadata CSV in `data/processed/`
 
-## Planned Pipeline
-The planned end-to-end pipeline is:
+### B. Run the GRU temporal model
+Run:
+- `04_gru_model_evaluation.ipynb`
 
-```text
-Jump Video → Frame Sampling → Pose Estimation → Landmark Processing
-→ Landmark Sequence Construction → Temporal Model (LSTM / GRU)
-→ Landing-Quality Prediction → UI Output
-```
+This evaluates the primary temporal model using stratified 5-fold cross-validation and saves GRU evaluation outputs.
 
-Static baseline models such as logistic regression, random forest, and a small multilayer perceptron will also be tested on aggregated pose-based features for comparison. The temporal model is the primary approach because jump-landing quality is inherently dynamic and depends on coordination across time rather than posture at a single instant.
+### C. Run the logistic regression baseline
+Run:
+- `05_static_baselines.ipynb`
 
+This evaluates the static baseline and saves:
+- fold-level metrics
+- predictions
+- confusion matrix
+- final saved logistic regression model (`logreg_model.joblib`)
 
-## User Interface
-Although the original JumpSafe system was implemented as an edge-oriented pipeline using an iPhone client, Flask server, and ESP32 device, the continuation project will use a lightweight Streamlit interface during the current development phase. This choice is intentional because the main focus of the continuation is to build and validate the new pose-based inference pipeline, not to rebuild a full mobile deployment stack immediately. Streamlit provides a practical way to connect video upload, preprocessing, pose extraction, feature generation, and model prediction within the same Python environment used for development.
+### D. Compare models
+Run:
+- `06_model_comparison.ipynb`
 
-The interface will allow a user to:
-- upload a short jump video
-- run the pose-based inference pipeline
-- view a landing-quality prediction
-- inspect selected interpretable outputs such as pose overlays or feature summaries
+This generates a side-by-side comparison table between the GRU and logistic regression baseline.
 
-In this way, the Streamlit interface serves as a prototype demonstration layer rather than the final deployment target. The broader project still builds on the edge-AI and low cost deployment goals established by the original JumpSafe system, and a future version could reconnect the improved pose based backend to a mobile or embedded client if needed.
+### E. Test raw-video inference
+A working backend inference path is implemented in:
+- `src/inference.py`
+
+It can process a raw jump video and return:
+- predicted label
+- confidence
+- class probabilities
+- missing-pose-frame count
+- processed sequence shape
+
+## Current Results
+
+### Preliminary cross-validation summary
+Under the current implementation:
+- the logistic regression baseline outperformed the GRU in preliminary stratified 5-fold cross-validation
+- the GRU pipeline is functional, but its current performance is less stable under the small-data setting
+
+### Model comparison
+Current mean ± standard deviation results:
+
+| Metric | GRU | Logistic Regression |
+|---|---|---|
+| Accuracy | 0.500 ± 0.204 | 0.633 ± 0.075 |
+| Precision | 0.390 ± 0.261 | 0.673 ± 0.192 |
+| Recall | 0.600 ± 0.435 | 0.667 ± 0.333 |
+| F1 Score | 0.471 ± 0.325 | 0.613 ± 0.157 |
+
+### Sample inference
+A sample raw-video inference run successfully produced:
+- predicted label: `bad_jump`
+- confidence: `0.857`
+- processed sequence shape: `(30, 132)`
+
+These results should be interpreted as preliminary proof-of-concept findings rather than final performance claims.
+
+## Interface Status
+
+A full user-facing interface is planned but not yet finalized in the current deliverable.
+
+Current status:
+- the backend inference pipeline is functional
+- a future lightweight interface (likely Streamlit) is intended to:
+  - accept a jump video
+  - run the pose-based inference pipeline
+  - display a landing-quality prediction and supporting outputs
+
+For this stage, the model-serving backend is complete enough to support future UI integration, and `ui/app.py` is reserved for that next phase of development.
+
+## Known Issues and Current Limitations
+
+- The dataset is very small (`30` clips), so model performance estimates remain unstable.
+- The GRU currently underperforms the logistic regression baseline under the present settings.
+- Pose extraction quality can vary depending on video quality, viewpoint, and visibility.
+- The interface layer is still in progress.
+- The project is not a clinical or diagnostic tool and should not be used for medical decision-making.
+
+## Planned Next Steps
+
+Before the next deliverable, planned improvements include:
+- hyperparameter tuning for the GRU
+- possible comparison with an LSTM variant
+- deeper error analysis and confusion-matrix review
+- additional label-quality checks and possible second-rater validation
+- refinement of the inference interface
+- improved interpretability outputs such as pose overlays or simple biomechanical summaries
 
 ## Author
 

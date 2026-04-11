@@ -2,8 +2,10 @@ numpy
 pandas
 matplotlib
 opencv-python
-mediapipe
+mediapipe==0.10.21
 scikit-learn
+torch
+joblib
 jupyter
 notebook
 streamlit
