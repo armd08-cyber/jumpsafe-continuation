@@ -1,0 +1,9 @@
+{
+  "model_type": "GRU",
+  "hidden_dim": 128,
+  "num_epochs": 20,
+  "learning_rate": 0.0005,
+  "batch_size": 4,
+  "n_splits": 5,
+  "evaluation": "clip-level stratified 5-fold cross-validation"
+}

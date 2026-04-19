@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Dict, List, Tuple
+import random
 
 import numpy as np
 import pandas as pd
@@ -26,19 +27,48 @@ CV_PREDICTIONS_PATH = PROCESSED_DIR / "cv_predictions.csv"
 CV_SUMMARY_PATH = PROCESSED_DIR / "cv_summary.csv"
 CV_CONFUSION_MATRIX_PATH = PROCESSED_DIR / "cv_confusion_matrix.npy"
 
+def set_global_seed(seed: int = RANDOM_SEED) -> None:
+    """
+    Set random seeds for reproducible training behavior.
+    """
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+
+    # Make PyTorch operations deterministic where possible.
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 def build_dataloaders(
     train_df: pd.DataFrame,
     val_df: pd.DataFrame,
     batch_size: int = 4,
+    seed: int = RANDOM_SEED,
 ) -> Tuple[DataLoader, DataLoader]:
     train_dataset = JumpSequenceDataset(train_df)
     val_dataset = JumpSequenceDataset(val_df)
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
-    return train_loader, val_loader
+    generator = torch.Generator()
+    generator.manual_seed(seed)
 
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        generator=generator,
+    )
+
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+    )
+
+    return train_loader, val_loader
 
 def train_one_epoch(
     model: torch.nn.Module,
@@ -122,7 +152,7 @@ def evaluate_one_epoch(
         "clip_ids": all_clip_ids,
     }
 
-
+    
 def run_single_split_experiment(
     train_df: pd.DataFrame,
     val_df: pd.DataFrame,
@@ -130,8 +160,15 @@ def run_single_split_experiment(
     batch_size: int = 4,
     learning_rate: float = 1e-3,
     hidden_dim: int = 64,
+    seed: int = RANDOM_SEED,
 ) -> Dict:
-    train_loader, val_loader = build_dataloaders(train_df, val_df, batch_size=batch_size)
+    set_global_seed(seed)
+    train_loader, val_loader = build_dataloaders(
+        train_df,
+        val_df,
+        batch_size=batch_size,
+        seed=seed,
+    )
 
     model = GRUClassifier(
         input_dim=132,
@@ -201,6 +238,8 @@ def run_stratified_kfold_cv(
         train_df = df.iloc[train_idx].reset_index(drop=True)
         val_df = df.iloc[val_idx].reset_index(drop=True)
 
+        fold_seed = random_state + fold_idx
+
         result = run_single_split_experiment(
             train_df=train_df,
             val_df=val_df,
@@ -208,6 +247,7 @@ def run_stratified_kfold_cv(
             batch_size=batch_size,
             learning_rate=learning_rate,
             hidden_dim=hidden_dim,
+            seed=fold_seed,
         )
 
         metrics = result["final_val_metrics"]
@@ -215,6 +255,7 @@ def run_stratified_kfold_cv(
 
         fold_record = {
             "fold": fold_idx,
+            "seed": fold_seed,
             "val_loss": metrics["loss"],
             "accuracy": metrics["accuracy"],
             "precision": metrics["precision"],

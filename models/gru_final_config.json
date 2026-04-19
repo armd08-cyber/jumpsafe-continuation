@@ -1,0 +1,12 @@
+{
+  "input_dim": 132,
+  "hidden_dim": 64,
+  "num_layers": 1,
+  "num_classes": 2,
+  "dropout": 0.0,
+  "sequence_length": 30,
+  "learning_rate": 0.001,
+  "num_epochs": 20,
+  "batch_size": 4,
+  "seed": 42
+}

@@ -14,3 +14,7 @@ data/processed/*
 !data/interim/.gitkeep
 !data/processed/.gitkeep
 !data/sample_videos/.gitkeep
+.DS_Store
+__pycache__/
+.ipynb_checkpoints/
+venv/
