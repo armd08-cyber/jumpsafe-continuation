@@ -52,7 +52,7 @@ Each processed clip is represented as a fixed-length pose sequence of shape `(30
 - `33 × 4 = 132` features per frame
 
 ## Repository Structure
-
+```text
 JumpSafe_Continuation/
 ├── README.md
 ├── requirements.txt
@@ -102,7 +102,7 @@ JumpSafe_Continuation/
 │   └── visualization.py
 └── ui/
     └── app.py
-
+```
 Note: Some legacy scaffold files may still remain in the repository for the timebeing, but the active workflow for the current prototype is based on the notebooks and source files listed above.
 
 ## Installation and Setup
